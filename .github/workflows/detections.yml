@@ -1,0 +1,85 @@
+name: Detection engineering
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate rules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Test, validate and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r requirements.lock
+          python -m unittest discover -s tests -v
+          python -m dac validate
+          python -m dac build --output artifacts/package/rules.ndjson
+          cp -r rules artifacts/package/rules
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: detection-package
+          path: artifacts/package
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: Deploy rules
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DETECTION_DEPLOY_ENABLED == 'true'
+    runs-on: [self-hosted, linux, gac-detections]
+    timeout-minutes: 15
+    environment: elastic-security-lab
+    concurrency:
+      group: elastic-security-lab
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          clean: true
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: detection-package
+          path: artifacts/package
+      - name: Prepare deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/backups
+          command -v bws >/dev/null
+          python3 -m venv .venv
+          .venv/bin/python -m pip install -r requirements.lock
+      - name: Deploy using Bitwarden
+        shell: bash
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          ELASTIC_DETECTION_API_KEY_SECRET_ID: ${{ vars.ELASTIC_DETECTION_API_KEY_SECRET_ID }}
+          KIBANA_URL: ${{ vars.KIBANA_URL }}
+          KIBANA_SPACE: ${{ vars.KIBANA_SPACE }}
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m dac deploy --rules artifacts/package/rules --backup artifacts/backups/before.ndjson --apply
+      - name: Save pre-deployment definitions
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rules-before-deployment
+          path: artifacts/backups
+          if-no-files-found: ignore
+          retention-days: 30

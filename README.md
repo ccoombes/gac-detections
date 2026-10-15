@@ -1,11 +1,11 @@
 # GAC Detection Engineering
 
 A standalone, VS Code-based repository for custom Elastic Security rules.
-Azure Pipelines validates PRs, packages rules, and deploys the validated main
+GitHub Actions validates PRs, packages rules, and deploys the validated main
 commit to the lab's private Kibana endpoint.
 
 ```text
-VS Code → feature branch → PR validation → merge main → Azure Pipelines → Kibana
+VS Code → feature branch → PR validation → merge main → GitHub Actions → Kibana
                                                         ↓
                                                Bitwarden API-key lookup
 ```
@@ -60,24 +60,24 @@ the API request; validate query logic and inspect rule execution after deploymen
 
 ## Pipeline setup
 
-Follow [Azure DevOps setup](docs/azure-devops.md). The YAML has two stages:
+Follow [GitHub Actions setup](docs/github-actions.md). The workflow has two jobs:
 
-| Stage | Runner | Credentials | Runs |
+| Job | Runner | Credentials | Runs |
 | --- | --- | --- | --- |
-| Validate | Microsoft-hosted Ubuntu | None | PRs and main |
-| Deploy | Private Linux agent in `GAC-SOC-Lab` | Bitwarden bootstrap token | Main only |
+| Validate rules | GitHub-hosted Ubuntu | None | PRs and main |
+| Deploy rules | Private Linux runner labelled `gac-detections` | Bitwarden bootstrap token | Main only, once enabled |
 
-PR triggers in YAML work for GitHub. Azure Repos needs a branch build-validation
-policy. Enforce main-only access on the deployment pool, variable group and
-environment outside YAML so a PR cannot bypass the condition by editing it.
-The Azure organization/project, remote repository, pipeline and agent still
-need to be connected; nothing has been published or deployed from this scaffold.
+Configure the protected `elastic-security-lab` environment, scoped credentials
+and lab runner before setting repository variable `DETECTION_DEPLOY_ENABLED=true`.
+Deployment stays skipped until enabled. The standalone repository is hosted at
+[ccoombes/gac-detections](https://github.com/ccoombes/gac-detections).
+No live Elastic deployment has been verified yet.
 
 ## Credentials and local plan
 
 Bitwarden Secrets Manager holds the **encoded Elastic API key**, in a dedicated
 machine secret. The CLI retrieves it using its secret UUID. Keep the bootstrap
-`BWS_ACCESS_TOKEN` in an Azure secret variable scoped to the deployment job.
+`BWS_ACCESS_TOKEN` in a GitHub environment secret scoped to deployment.
 Do not put the Elastic API key, credentials files or tokens in the repository.
 Local use requires an existing authorized Bitwarden machine token in the process
 environment and the official `bws` CLI on PATH:

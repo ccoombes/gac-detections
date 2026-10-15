@@ -1,7 +1,7 @@
 # GAC Detection Engineering
 
 This standalone repository owns custom Elastic Security detections only.
-Use Python 3.11+, VS Code, JSON rules and Azure Pipelines. Follow README.md.
+Use Python 3.11+, VS Code, JSON rules and GitHub Actions. Follow README.md.
 Bitwarden Secrets Manager is authoritative for machine credentials. Never
 commit secrets, API responses containing credentials, or certificate material.
 Require trusted HTTPS. Do not disable TLS checks or expose Kibana publicly.
