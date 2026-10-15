@@ -30,7 +30,8 @@ class NativeWorkflowTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             root(args=["validate-all"], standalone_mode=False)
             root(args=["export-rules-from-repo", "--directory", str(ROOT / "rules"), "--outfile", str(output)], standalone_mode=False)
-        exported = json.loads(output.read_text())
+        packaged = [json.loads(line) for line in output.read_text().splitlines() if line.strip()]
+        exported = next(rule for rule in packaged if rule.get("rule_id") == self.rule.id)
         self.assertEqual(exported["rule_id"], "944cce20-7e5b-43bb-8b08-32e93ee3cb2b")
         self.assertIs(exported["enabled"], False)
         self.assertEqual(exported["query"], self.payload["query"])
