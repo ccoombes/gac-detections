@@ -15,22 +15,29 @@ jobs:
     name: Validate rules
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      CUSTOM_RULES_DIR: ${{ github.workspace }}
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          submodules: true
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - name: Test, validate and package
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -r requirements.lock
+          python -m pip install --no-deps -r requirements.txt
+          python -m pip check
           python -m unittest discover -s tests -v
-          python -m dac validate
-          python -m dac build --output artifacts/package/rules.ndjson
-          cp -r rules artifacts/package/rules
+          python -m detection_rules validate-all
+          mkdir -p artifacts/package
+          python -m detection_rules export-rules-from-repo --directory rules --outfile artifacts/package/rules.ndjson
+          cp -r rules etc exceptions action_connectors artifacts/package/
+          cp _config.yaml artifacts/package/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: detection-package
@@ -52,6 +59,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          submodules: true
           clean: true
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -63,8 +71,9 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/backups
           command -v bws >/dev/null
-          python3 -m venv .venv
-          .venv/bin/python -m pip install -r requirements.lock
+          python3.12 -m venv .venv
+          .venv/bin/python -m pip install --no-deps -r requirements.txt
+          .venv/bin/python -m pip check
       - name: Deploy using Bitwarden
         shell: bash
         env:
@@ -74,7 +83,7 @@ jobs:
           KIBANA_SPACE: ${{ vars.KIBANA_SPACE }}
         run: |
           set -euo pipefail
-          .venv/bin/python -m dac deploy --rules artifacts/package/rules --backup artifacts/backups/before.ndjson --apply
+          .venv/bin/python scripts/kibana.py deploy --directory artifacts/package/rules --backup artifacts/backups
       - name: Save pre-deployment definitions
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

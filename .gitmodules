@@ -1,0 +1,3 @@
+[submodule ".elastic/detection-rules"]
+	path = .elastic/detection-rules
+	url = https://github.com/elastic/detection-rules.git

@@ -2,22 +2,29 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "DaC: validate rules",
+      "label": "Elastic: validate rules",
       "type": "process",
       "command": "${command:python.interpreterPath}",
       "args": [
         "-m",
-        "dac",
-        "validate"
+        "detection_rules",
+        "validate-all"
       ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "CUSTOM_RULES_DIR": "${workspaceFolder}",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "problemMatcher": [],
       "group": {
         "kind": "build",
         "isDefault": true
-      },
-      "problemMatcher": []
+      }
     },
     {
-      "label": "DaC: test",
+      "label": "Elastic: test",
       "type": "process",
       "command": "${command:python.interpreterPath}",
       "args": [
@@ -28,42 +35,55 @@
         "tests",
         "-v"
       ],
-      "group": "test",
-      "problemMatcher": []
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "CUSTOM_RULES_DIR": "${workspaceFolder}",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
     },
     {
-      "label": "DaC: package rules",
+      "label": "Elastic: package rules",
       "type": "process",
       "command": "${command:python.interpreterPath}",
       "args": [
         "-m",
-        "dac",
-        "build"
+        "detection_rules",
+        "export-rules-from-repo",
+        "--directory",
+        "rules",
+        "--outfile",
+        "artifacts/rules.ndjson"
       ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "CUSTOM_RULES_DIR": "${workspaceFolder}",
+          "PYTHONUTF8": "1"
+        }
+      },
       "problemMatcher": []
     },
     {
-      "label": "DaC: deployment plan (read only)",
+      "label": "Elastic: pull rule from Kibana",
       "type": "process",
       "command": "${command:python.interpreterPath}",
       "args": [
-        "-m",
-        "dac",
-        "deploy"
-      ],
-      "problemMatcher": []
-    },
-    {
-      "label": "DaC: pull rule from Kibana",
-      "type": "process",
-      "command": "${command:python.interpreterPath}",
-      "args": [
-        "-m",
-        "dac",
+        "scripts/kibana.py",
         "pull",
         "--rule-id",
         "${input:pullRuleId}"
       ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "CUSTOM_RULES_DIR": "${workspaceFolder}",
+          "PYTHONUTF8": "1"
+        }
+      },
       "problemMatcher": []
     }
   ],
@@ -71,7 +91,7 @@
     {
       "id": "pullRuleId",
       "type": "promptString",
-      "description": "Kibana custom rule_id UUID (add gac-detections tag first)"
+      "description": "Kibana rule_id UUID to export for review (requires Bitwarden environment)"
     }
   ]
 }

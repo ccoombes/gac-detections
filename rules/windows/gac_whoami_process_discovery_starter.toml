@@ -1,0 +1,26 @@
+[metadata]
+creation_date = "2026/10/15"
+updated_date = "2026/10/15"
+maturity = "development"
+min_stack_version = "9.5.0"
+
+[rule]
+rule_id = "944cce20-7e5b-43bb-8b08-32e93ee3cb2b"
+name = "GAC - Whoami process discovery (starter)"
+description = "Detects whoami.exe execution in Windows Sysmon process creation events. A disabled starter rule for testing the detection engineering workflow."
+author = [ "GAC SOC Lab",]
+type = "query"
+language = "kuery"
+index = [ "logs-windows.sysmon_operational-*",]
+query = "event.code: \"1\" and process.name: \"whoami.exe\""
+severity = "low"
+risk_score = 21
+interval = "5m"
+from = "now-6m"
+enabled = false
+tags = [ "gac-detections", "Windows", "Discovery", "T1033", "starter",]
+version = 1
+max_signals = 100
+false_positives = [ "Interactive administration and troubleshooting.",]
+references = [ "https://attack.mitre.org/techniques/T1033/",]
+note = "Validate ECS field mappings and query results against lab Sysmon events before enabling. Investigate parent process, user and surrounding process activity."

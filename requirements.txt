@@ -1,1 +1,6 @@
-jsonschema==4.26.0
+# Install locked dependencies, then the pinned official editable packages.
+# See README; use --no-deps to avoid upstream floating Git URLs.
+-r requirements.lock
+-e .elastic/detection-rules/lib/kql
+-e .elastic/detection-rules/lib/kibana
+-e .elastic/detection-rules

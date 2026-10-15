@@ -9,3 +9,5 @@ artifacts/
 *.key
 *.pfx
 *.clixml
+.venv-elastic/
+.venv-linux/

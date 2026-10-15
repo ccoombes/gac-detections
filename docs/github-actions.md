@@ -1,13 +1,14 @@
 # Connect GitHub Actions
 
-The workflow is `.github/workflows/detections.yml`. Pull requests and main
+The workflow is `.github/workflows/detections.yml`. It installs the pinned official
+Elastic submodule packages with `pip install --no-deps -r requirements.txt`. Pull requests and main
 commits validate on GitHub-hosted Ubuntu. Deployment is initially disabled;
 enable it after completing the setup below. No Azure DevOps account is needed.
 
 ## 1. Protect main and the deployment environment
 
 Require pull requests and the `Validate rules` status check on main. Review
-workflow, schema, deployment code and rule changes before merging.
+workflow, native configuration, deployment code and rule changes before merging.
 Create environment `elastic-security-lab` under Settings → Environments and
 restrict deployment branches to the selected branch `main` (no tags).
 Environment protection availability depends on repository visibility and plan.
@@ -25,7 +26,7 @@ model, first provide isolated ephemeral runners with restricted network access.
 Register a repository-scoped Linux GitHub Actions runner with custom label
 `gac-detections`, using Settings → Actions → Runners. Run it as a dedicated
 unprivileged service account. Provisioning belongs in the infrastructure repo;
-VM105 is a possible host. Install Python 3.11+, venv support, Git and a pinned
+VM105 is a possible host. Install Python 3.12, venv support, Git (including the pinned submodule) and a pinned
 official Bitwarden `bws` release with verified publisher checksum. Avoid root
 and container socket access. Keep the runner updated.
 
@@ -58,11 +59,12 @@ queuing deployment jobs before the private runner and environment are ready.
 
 ## 4. First deployment and recovery
 
-Inspect the successful validation run and disabled starter rule artifact. After
+Inspect the successful native validation run and disabled starter TOML/NDJSON artifact. After
 setup, run `Detection engineering` manually on main or merge a reviewed change.
 Deploy consumes the artifact from the same run and backs up previous definitions
 as `rules-before-deployment`. Artifacts are accessible to repository readers;
-backups omit credentials, but rule queries may contain operational details.
+native TOML backups omit execution API keys, but rules and connector metadata
+may contain operational details.
 Retention is 14 days for packages and 30 days for backups.
 
 Concurrency prevents overlapping deployments and never cancels an active write.
@@ -70,6 +72,11 @@ GitHub may replace older pending runs with newer ones; rules represent complete
 desired state, so intermediate revisions need not all deploy. API writes are
 not atomic. Inspect failures and rerun or restore with a version-bumped commit.
 Confirm the starter remains disabled, then test telemetry before enabling it.
+Deployment calls `scripts/kibana.py deploy`, which bootstraps Bitwarden and invokes
+the official `kibana export-rules` / `kibana import-rules` commands. It fails the
+job if the native import response contains errors or missing successful rules.
+Existing action/exception-reference changes need separate dependency review;
+the workflow does not enable native overwrite-exceptions/overwrite-connectors.
 
 References: [Elastic DaC reference](https://github.com/elastic/DaC-Reference),
 [GitHub deployment controls](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments),

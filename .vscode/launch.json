@@ -1,4 +1,20 @@
 {
   "version": "0.2.0",
-  "configurations": [{"name": "Validate detection rules", "type": "debugpy", "request": "launch", "module": "dac", "args": ["validate"], "console": "integratedTerminal", "justMyCode": true}]
+  "configurations": [
+    {
+      "name": "Validate detection rules",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "detection_rules",
+      "args": [
+        "validate-all"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "CUSTOM_RULES_DIR": "${workspaceFolder}",
+        "PYTHONUTF8": "1"
+      }
+    }
+  ]
 }
