@@ -125,15 +125,77 @@ def sync(client, rules, backup, apply=False):
                 raise DacError("Unexpected deployment response; stop and inspect the target before retrying.")
 
 
+def pull(client, rule_ids, directory, overwrite=False):
+    """Pull explicitly selected, UI-opted-in rules without changing Kibana."""
+    schema = json.loads((ROOT / "schemas/rule.schema.json").read_text())
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    # Only discard known response metadata and documented empty/default options.
+    metadata = {"id", "created_at", "created_by", "updated_at", "updated_by",
+                "revision", "immutable", "rule_source", "execution_summary",
+                "api_key", "api_key_owner", "api_key_created_by_user", "output_index",
+                "updated_by_user"}
+    defaults = {"actions": [], "exceptions_list": [], "filters": [], "threat": [],
+                "risk_score_mapping": [], "severity_mapping": [], "to": "now",
+                "meta": {}, "throttle": "no_actions", "building_block_type": None,
+                "timestamp_override": None, "timestamp_override_fallback_disabled": False,
+                "event_category_override": None, "tiebreaker_field": None,
+                "timeline_id": None, "timeline_title": None, "license": "",
+                "rule_name_override": None, "data_view_id": None, "namespace": "default",
+                "related_integrations": [], "required_fields": [], "setup": ""}
+    directory = Path(directory)
+    existing = load_rules(directory) if any(directory.rglob("*.json")) else []
+    local = {rule["rule_id"]: rule for rule in existing}
+    prepared = []
+    for rule_id in dict.fromkeys(rule_ids):
+        # Validate IDs before using them in filenames.
+        if not FormatChecker().conforms(rule_id, "uuid"):
+            raise DacError("--rule-id must be a UUID.")
+        old = client.request("GET", "?" + urlencode({"rule_id": rule_id}))
+        if not isinstance(old, dict) or old.get("rule_id") != rule_id:
+            raise DacError("Unexpected pull response.")
+        if old.get("immutable") or OWNER not in old.get("tags", []):
+            raise DacError("Select a custom rule and add the gac-detections tag in Kibana before pulling.")
+        unsupported = [k for k, v in old.items() if k not in schema["properties"]
+                       and k not in metadata and not (k in defaults and v == defaults[k])]
+        if unsupported:
+            raise DacError("Unsupported rule fields; nothing written: " + ", ".join(sorted(unsupported)))
+        rule = {k: v for k, v in old.items() if k in schema["properties"]}
+        if rule_id in local and not overwrite:
+            raise DacError("Rule already exists locally; review Git changes or use --overwrite explicitly.")
+        # A reviewed import is a new Git revision, including when replacing local code.
+        rule["version"] = max(rule.get("version", 1), local.get(rule_id, {}).get("version", 1)) + 1
+        errors = list(validator.iter_errors(rule))
+        if errors:
+            raise DacError("Pulled rule does not meet the repository schema; nothing written: " + errors[0].message)
+        paths = [p for p in directory.rglob("*.json")
+                 if json.loads(p.read_text(encoding="utf-8")).get("rule_id") == rule_id]
+        target = paths[0] if paths else directory / "imported" / (rule_id + ".json")
+        prepared.append((target, rule))
+    # All selected rules must pass before any local file is replaced.
+    for target, rule in prepared:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(rule, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return len(prepared)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["validate", "build", "deploy"])
+    parser.add_argument("command", choices=["validate", "build", "deploy", "pull"])
+    parser.add_argument("--rule-id", action="append", help="Kibana rule_id UUID to pull; repeat to select multiple.")
+    parser.add_argument("--overwrite", action="store_true", help="Explicitly replace existing local rules during pull.")
     parser.add_argument("--rules", type=Path, default=ROOT / "rules")
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/rules.ndjson")
     parser.add_argument("--backup", type=Path, default=ROOT / "artifacts/backups/before.ndjson")
     parser.add_argument("--apply", action="store_true", help="Write rules; deploy without this flag is read-only.")
     args = parser.parse_args(argv)
     try:
+        if args.command == "pull":
+            if not args.rule_id:
+                raise DacError("pull requires at least one --rule-id; no bulk import is implicit.")
+            client = Kibana(os.environ.get("KIBANA_URL", ""), bitwarden_key(), os.environ.get("KIBANA_SPACE", "default"))
+            count = pull(client, args.rule_id, args.rules, args.overwrite)
+            print(f"pull: {count} rule(s) saved for Git review; Kibana unchanged.")
+            return 0
         rules = load_rules(args.rules)
         if args.command == "build":
             package(rules, args.output)

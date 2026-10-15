@@ -97,6 +97,39 @@ to required source indices. Follow [Elastic's privilege guidance](https://www.el
 for the installed version; initialize the detection engine once as an administrator.
 Do not give the deployment key `superuser` or use the human `elastic` account.
 
+## Pull a rule created in Kibana
+
+Elastic's official tooling provides [`kibana export-rules`](https://github.com/elastic/detection-rules/blob/main/CLI.md#exporting-rules).
+This repository's equivalent is `dac pull`, using the same Bitwarden and Kibana
+environment configuration described above. It reads Kibana and writes local
+JSON files; it never updates Kibana or commits/pushes automatically.
+
+1. Create and test a custom KQL or EQL rule in Kibana.
+2. Add the `gac-detections` tag in Kibana to explicitly opt it into Git management.
+3. Copy its **rule_id UUID** (not the Kibana saved-object `id`).
+4. Use VS Code task **DaC: pull rule from Kibana**, or run:
+
+```powershell
+.venv\Scripts\python -m dac pull --rule-id '<rule_id UUID>'
+# Repeat --rule-id to select multiple rules.
+.venv\Scripts\python -m dac validate
+```
+
+New files go to `rules/imported/<rule_id>.json`. Review them in VS Code Source
+Control, commit on a feature branch and open a PR. Existing local rules are
+protected; pass `--overwrite` explicitly to replace one at its existing path.
+Pull retains IDs and enabled state, increments version above both remote and
+local versions, and removes execution credentials/server metadata. All selected
+rules must pass validation before any local files are written. Unsupported rule
+types/settings (including nonempty filters, threat mappings, actions or exception
+lists) cause refusal rather than silently losing detection behavior. Extend the
+schema and round-trip handling before importing those rules. Prebuilt rules are
+refused; duplicate one as a custom rule first if you intend to manage a derivative.
+
+After merging, Git owns that rule. Pull later UI edits explicitly for review;
+there is no automatic bidirectional synchronization. Live authenticated pull
+has not been verified; unit tests cover selection, sanitization and overwrite.
+
 ## Updates, retirement and recovery
 
 All target IDs are preflighted before the first write. Existing prebuilt rules,
