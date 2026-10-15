@@ -24,6 +24,14 @@ Steps 1–5 work without a deployment runner. Step 6 enables writes to Kibana.
 This guide covers detection engineering. Entra/Microsoft 365 log collection is
 a separate infrastructure task with its own licensing and permissions.
 
+## Build detections with Codex in VS Code
+
+Follow the [Codex detection engineering guide](docs/codex-detection-engineering.md)
+to install the official extension, sign in, and turn a detection idea into a
+disabled native Elastic rule. It includes copy-and-paste prompts, sample-event
+guidance, local validation commands and the human review steps before deployment.
+Start with local authoring; Codex does not need your Elastic or Bitwarden keys.
+
 | Item | Purpose | Where to keep it |
 | --- | --- | --- |
 | Elastic automation password | Recover/sign into the dedicated Elastic identity | Bitwarden Password Manager |
