@@ -4,7 +4,7 @@
     {
       "label": "Elastic: validate rules",
       "type": "process",
-      "command": "${command:python.interpreterPath}",
+      "command": "${workspaceFolder}/.venv-elastic/bin/python",
       "args": [
         "-m",
         "detection_rules",
@@ -21,12 +21,15 @@
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "windows": {
+        "command": "${workspaceFolder}\\.venv-elastic\\Scripts\\python.exe"
       }
     },
     {
       "label": "Elastic: test",
       "type": "process",
-      "command": "${command:python.interpreterPath}",
+      "command": "${workspaceFolder}/.venv-elastic/bin/python",
       "args": [
         "-m",
         "unittest",
@@ -43,12 +46,15 @@
         }
       },
       "problemMatcher": [],
-      "group": "test"
+      "group": "test",
+      "windows": {
+        "command": "${workspaceFolder}\\.venv-elastic\\Scripts\\python.exe"
+      }
     },
     {
       "label": "Elastic: package rules",
       "type": "process",
-      "command": "${command:python.interpreterPath}",
+      "command": "${workspaceFolder}/.venv-elastic/bin/python",
       "args": [
         "-m",
         "detection_rules",
@@ -65,12 +71,15 @@
           "PYTHONUTF8": "1"
         }
       },
-      "problemMatcher": []
+      "problemMatcher": [],
+      "windows": {
+        "command": "${workspaceFolder}\\.venv-elastic\\Scripts\\python.exe"
+      }
     },
     {
       "label": "Elastic: pull rule from Kibana",
       "type": "process",
-      "command": "${command:python.interpreterPath}",
+      "command": "${workspaceFolder}/.venv-elastic/bin/python",
       "args": [
         "scripts/kibana.py",
         "pull",
@@ -84,7 +93,10 @@
           "PYTHONUTF8": "1"
         }
       },
-      "problemMatcher": []
+      "problemMatcher": [],
+      "windows": {
+        "command": "${workspaceFolder}\\.venv-elastic\\Scripts\\python.exe"
+      }
     }
   ],
   "inputs": [
