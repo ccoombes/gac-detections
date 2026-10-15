@@ -1,0 +1,76 @@
+trigger:
+  batch: true
+  branches:
+    include: [main]
+
+# GitHub supports YAML PR triggers. Azure Repos requires a main-branch
+# build-validation policy instead; see docs/azure-devops.md.
+pr:
+  branches:
+    include: [main]
+
+stages:
+- stage: Validate
+  jobs:
+  - job: ValidateRules
+    pool:
+      vmImage: ubuntu-24.04
+    steps:
+    - checkout: self
+      clean: true
+      persistCredentials: false
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.11'
+    - bash: |
+        set -euo pipefail
+        python -m pip install -r requirements.lock
+        python -m unittest discover -s tests -v
+        python -m dac validate
+        python -m dac build --output artifacts/package/rules.ndjson
+        cp -r rules artifacts/package/rules
+      displayName: Test, validate and package rules
+    - publish: artifacts/package
+      artifact: detection-package
+
+- stage: Deploy
+  lockBehavior: sequential
+  dependsOn: Validate
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))
+  jobs:
+  - deployment: DeployDetectionRules
+    environment: elastic-security-lab
+    pool:
+      name: GAC-SOC-Lab
+      demands:
+      - Agent.OS -equals Linux
+    variables:
+    - group: gac-detections-deploy
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            clean: true
+            persistCredentials: false
+          - download: current
+            artifact: detection-package
+          - bash: |
+              set -euo pipefail
+              mkdir -p artifacts/backups
+              command -v bws >/dev/null
+              python3 -m venv .venv
+              .venv/bin/python -m pip install -r requirements.lock
+              .venv/bin/python -m dac deploy \
+                --rules "$(Pipeline.Workspace)/detection-package/rules" \
+                --backup artifacts/backups/before.ndjson \
+                --apply
+            displayName: Deploy validated rules using Bitwarden
+            env:
+              BWS_ACCESS_TOKEN: $(BWS_ACCESS_TOKEN)
+              ELASTIC_DETECTION_API_KEY_SECRET_ID: $(ELASTIC_DETECTION_API_KEY_SECRET_ID)
+              KIBANA_URL: $(KIBANA_URL)
+              KIBANA_SPACE: $(KIBANA_SPACE)
+          - publish: artifacts/backups
+            artifact: rules-before-deployment
+            condition: always()

@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label": "DaC: validate rules", "type": "process", "command": "${command:python.interpreterPath}", "args": ["-m", "dac", "validate"], "group": {"kind": "build", "isDefault": true}, "problemMatcher": []},
+    {"label": "DaC: test", "type": "process", "command": "${command:python.interpreterPath}", "args": ["-m", "unittest", "discover", "-s", "tests", "-v"], "group": "test", "problemMatcher": []},
+    {"label": "DaC: package rules", "type": "process", "command": "${command:python.interpreterPath}", "args": ["-m", "dac", "build"], "problemMatcher": []},
+    {"label": "DaC: deployment plan (read only)", "type": "process", "command": "${command:python.interpreterPath}", "args": ["-m", "dac", "deploy"], "problemMatcher": []}
+  ]
+}
