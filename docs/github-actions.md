@@ -5,6 +5,14 @@ Elastic submodule packages with `pip install --no-deps -r requirements.txt`. Pul
 commits validate on GitHub-hosted Ubuntu. Deployment is initially disabled;
 enable it after completing the setup below. No Azure DevOps account is needed.
 
+This is step 6 of the [README onboarding checklist](../README.md#getting-started-follow-this-order).
+First complete the workstation, Elastic API key, Bitwarden project/machine-token
+setup and successful local pull there. Run hosted validation with deployment
+disabled before adding the protected environment and runner below. After a
+successful disabled-rule deployment, continue to the README's Codex authoring
+and PR workflow. Keep credentials and runner installation here separate from
+the Codex chat.
+
 ## 1. Protect main and the deployment environment
 
 Require pull requests and the `Validate rules` status check on main. Review

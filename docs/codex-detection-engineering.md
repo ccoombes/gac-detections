@@ -1,5 +1,18 @@
 # Build detections with Codex in VS Code
 
+## Before starting: complete repository onboarding
+
+Start at the [README setup checklist](../README.md#getting-started-follow-this-order),
+not at the extension installation below. Complete prerequisites, workstation
+validation, the Elastic identity/key, Bitwarden secret and machine tokens, a local
+pull, and the GitHub Actions environment/runner setup. Prove the pipeline with a
+disabled rule before using this guide for your first AI-assisted detection.
+
+You are ready when local validation and the authenticated pull pass, hosted CI
+passes, and an approved disabled-rule deployment has been verified in Kibana.
+If runner setup is pending, you can practice offline drafting, but the full
+delivery path is not yet ready. Keep deployment disabled until its checks pass.
+
 Use Codex to help research the repository, draft queries, review false positives
 and edit native Elastic TOML. You remain responsible for the detection hypothesis,
 telemetry checks and approval. A syntactically valid rule can still miss events or

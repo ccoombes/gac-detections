@@ -13,24 +13,56 @@ Third-party runtime versions are pinned in `requirements.lock`.
 
 ## Getting started: follow this order
 
-1. [Open VS Code and validate locally](#start-in-vs-code).
-2. [Create the Elastic automation identity and API key](#create-the-elastic-identity-and-api-key).
-3. [Store the key in Bitwarden and create machine tokens](#configure-bitwarden-secrets-manager).
-4. [Pull a custom Kibana rule](#pull-rules-created-in-kibana).
-5. [Review and push a pull request](#review-and-push-your-first-rule).
-6. [Enable GitHub Actions deployment](#github-actions-and-deployment).
+Start here for a complete setup. Finish prerequisites and the delivery pipeline
+before the Codex authoring guide, which is a later workflow.
 
-Steps 1–5 work without a deployment runner. Step 6 enables writes to Kibana.
-This guide covers detection engineering. Entra/Microsoft 365 log collection is
-a separate infrastructure task with its own licensing and permissions.
+| Step | Task | Completion check |
+| --- | --- | --- |
+| 1 | [Check prerequisites](#prerequisites) | Accounts, permissions and network access available |
+| 2 | [Prepare VS Code and Python](#start-in-vs-code) | Local tests, validation and packaging pass |
+| 3 | [Create the Elastic identity and API key](#create-the-elastic-identity-and-api-key) | Scoped identity and encoded API key created |
+| 4 | [Configure Bitwarden Secrets Manager](#configure-bitwarden-secrets-manager) | Secret UUID and separate workstation/CI tokens recorded securely |
+| 5 | [Pull a disabled UI rule](#pull-rules-created-in-kibana) | Authenticated export succeeds without changing Kibana |
+| 6 | [Configure and prove GitHub Actions](#github-actions-and-deployment) | Hosted validation and approved disabled-rule deployment succeed |
+| 7 | [Set up Codex and author detections](#build-detections-with-codex-in-vs-code) | Draft supported by telemetry and local checks |
+| 8 | [Review and push a rule PR](#review-and-push-your-first-rule) | Reviewed changes deploy and execution/alerts are verified |
 
-## Build detections with Codex in VS Code
+Use the existing disabled starter to prove delivery in step 6. Keep
+`DETECTION_DEPLOY_ENABLED=false` until runner connectivity and protection checks
+pass. A disabled-rule deployment proves delivery, not alert generation. Enable a
+tested rule through a separate reviewed change and verify execution and alerts.
 
-Follow the [Codex detection engineering guide](docs/codex-detection-engineering.md)
-to install the official extension, sign in, and turn a detection idea into a
-disabled native Elastic rule. It includes copy-and-paste prompts, sample-event
-guidance, local validation commands and the human review steps before deployment.
-Start with local authoring; Codex does not need your Elastic or Bitwarden keys.
+### Already prepared versus still to configure
+
+VM125 has Git, Python 3.12, VS Code, `bws`, this repository and `.venv-elastic`.
+Native tooling, editor tasks and workflow YAML are committed. Verify the Elastic
+identity/key, Bitwarden project/tokens, GitHub environment/protections and runner
+using the checks above; these require separate configuration. Codex sign-in is
+personal setup too. These docs do not claim an authenticated deployment has
+already succeeded.
+
+## Prerequisites
+
+- **Lab access:** Teleport access to VM125, a Kibana administrator for bootstrap
+  and role/user setup, and your own authorized Kibana account for query testing.
+- **GitHub:** repository administration for Actions, environments, secrets,
+  variables and branch protection, plus your own Git push access. Confirm the
+  visibility and plan support the required deployment controls.
+- **Bitwarden:** an organization with **Secrets Manager** enabled and permission
+  to create projects, secrets, machine accounts and access tokens. Password
+  Manager alone is insufficient; use it for human/recovery credentials.
+- **Network:** VM125 and the runner must resolve and reach
+  `https://kibana.gaclab.xyz` with trusted HTTPS. Allow outbound dependency and
+  Bitwarden access, plus GitHub for the runner. See the
+  [runner requirements](docs/github-actions.md#2-lab-deployment-runner).
+- **Telemetry:** confirm Sysmon events in `logs-windows.sysmon_operational-*`.
+  Ingestion belongs in the lab infrastructure repository. Entra/Microsoft 365
+  collection is separate; confirm it before writing detections for those sources.
+- **Runner host:** arrange a Linux service account/host through infrastructure
+  management. VM125 remains the workstation. Choose the private/trusted or
+  isolated ephemeral runner model before registering a runner with lab access.
+
+Keep these credentials distinct throughout setup:
 
 | Item | Purpose | Where to keep it |
 | --- | --- | --- |
@@ -115,32 +147,6 @@ using the native CLI:
 .venv-elastic\Scripts\python -m unittest discover -s tests -v
 .venv-elastic\Scripts\python -m detection_rules export-rules-from-repo --directory rules --outfile artifacts/rules.ndjson
 ```
-
-## Repository layout and authoring
-
-- `_config.yaml`, `etc/`: generated by official `custom-rules setup-config`, targeting stack 9.5 (lab infrastructure specifies 9.5.4).
-- `rules/`: custom TOML detections with `[metadata]` and `[rule]` sections.
-- `exceptions/`, `action_connectors/`, `actions/`: native dependency collections.
-- `.elastic/detection-rules/`: unmodified pinned upstream code; update the submodule in a reviewed PR.
-- `scripts/kibana.py`: Bitwarden bootstrap and lab ownership/backup policy around the official CLI.
-
-Create a feature branch. Use native `python -m detection_rules create-rule`
-with a destination TOML path, or export a UI-created rule as described below.
-Keep `rule_id` stable and the `gac-detections` ownership tag. Set `enabled = false`
-until tested. Update metadata dates and increment `[rule].version` on changes.
-`bypass_version_lock: true` uses explicit native rule versions rather than the
-Elastic prebuilt-release lock strategy. Files have no tactic-name prefix.
-
-Run validation, inspect telemetry/query results in Kibana, and open a PR. The
-starter keeps UUID `944cce20-7e5b-43bb-8b08-32e93ee3cb2b` and remains disabled.
-Native validation checks query/schema correctness, but does not prove detection
-coverage, field availability or successful execution against your live data.
-
-Do not add `--stack-version` to the package command casually: the pinned upstream
-CLI's downgrade path generates replacement IDs by default. Packaging without
-that flag preserves IDs; an offline integration test enforces this. Rules target
-the configured stack through native metadata/config. Revisit compatibility and
-identity tests when changing stack or upstream revision.
 
 ## Create the Elastic identity and API key
 
@@ -310,37 +316,23 @@ The official CLI is also available directly with `CUSTOM_RULES_DIR` set:
 ID, name or query. Consult the pinned upstream `CLI.md` for options. This project
 does not automatically synchronize UI edits or push exported files to Git.
 
-## Review and push your first rule
-
-1. Create a branch: `git switch -c detections/my-first-rule`.
-2. Open the export folder in VS Code Explorer and review its TOML files. Search
-   the existing `rules/` collection for the same `rule_id`. Reconcile the existing
-   file when present; never add duplicate IDs.
-3. For a new rule, create `rules/imported/` and move the reviewed rule TOML there.
-   Review dependency files before moving them into root `exceptions/` and
-   `action_connectors/`. Never commit sensitive connector configuration.
-4. Preserve ID, ownership tag and disabled state. Update metadata dates and
-   increment `[rule].version` above the existing/exported version for changes.
-5. Run **Elastic: validate rules**, **Elastic: test** and **Elastic: package rules**.
-   Inspect the packaged query/ID/enabled state and test query behavior in Kibana.
-6. Commit only the reviewed files and push:
-
-```powershell
-git diff
-# Replace with the specific TOML path you reviewed:
-git add "rules/imported/your-reviewed-rule.toml"
-git commit -m "Add first custom detection"
-git push -u origin HEAD
-```
-
-If Git asks for identity, use `git config user.name "Your Name"` and
-`git config user.email "your-github-email"` for this repository. Follow Git
-Credential Manager's browser sign-in when prompted; do not put a token into
-the remote URL. On GitHub, choose the branch's **Compare & pull request**, inspect
-**Validate rules**, then merge after review. With deployment disabled, this only
-validates and packages; it does not change Kibana.
-
 ## GitHub Actions and deployment
+
+Complete the Elastic/Bitwarden setup and successful local pull above first.
+Keep the first exported exercise rule staged under `artifacts/` until reviewed;
+the existing disabled starter can prove the pipeline without importing that draft.
+
+### Prove hosted validation before configuring deployment
+
+1. Open GitHub **Actions** and enable repository Actions if required.
+2. Confirm repository policy permits the pinned actions in
+   `.github/workflows/detections.yml`.
+3. With `DETECTION_DEPLOY_ENABLED` absent or `false`, choose
+   **Detection engineering → Run workflow → main**.
+4. Confirm **Validate rules** passes, `detection-package` is available and
+   **Deploy rules** is skipped. No Bitwarden token or lab runner is required here.
+   Resolve validation failures before continuing; this run also establishes the
+   status check to select for main-branch protection.
 
 ### Configure the environment and enable the first deployment
 
@@ -404,6 +396,70 @@ Offline tests exercise the actual official parser, packaging and API-to-TOML
 conversion, plus the lab deployment guards. Authenticated local export needs the
 scoped credentials above; CI deployment also needs the runner and protected
 environment. These instructions do not provision credentials or perform a live import.
+
+## Build detections with Codex in VS Code
+
+Follow the [Codex detection engineering guide](docs/codex-detection-engineering.md)
+to install the official extension, sign in, and turn a detection idea into a
+disabled native Elastic rule. It includes copy-and-paste prompts, sample-event
+guidance, local validation commands and the human review steps before deployment.
+Start with local authoring; Codex does not need your Elastic or Bitwarden keys.
+
+## Repository layout and authoring
+
+- `_config.yaml`, `etc/`: generated by official `custom-rules setup-config`, targeting stack 9.5 (lab infrastructure specifies 9.5.4).
+- `rules/`: custom TOML detections with `[metadata]` and `[rule]` sections.
+- `exceptions/`, `action_connectors/`, `actions/`: native dependency collections.
+- `.elastic/detection-rules/`: unmodified pinned upstream code; update the submodule in a reviewed PR.
+- `scripts/kibana.py`: Bitwarden bootstrap and lab ownership/backup policy around the official CLI.
+
+Create a feature branch. Use native `python -m detection_rules create-rule`
+with a destination TOML path, or export a UI-created rule as described below.
+Keep `rule_id` stable and the `gac-detections` ownership tag. Set `enabled = false`
+until tested. Update metadata dates and increment `[rule].version` on changes.
+`bypass_version_lock: true` uses explicit native rule versions rather than the
+Elastic prebuilt-release lock strategy. Files have no tactic-name prefix.
+
+Run validation, inspect telemetry/query results in Kibana, and open a PR. The
+starter keeps UUID `944cce20-7e5b-43bb-8b08-32e93ee3cb2b` and remains disabled.
+Native validation checks query/schema correctness, but does not prove detection
+coverage, field availability or successful execution against your live data.
+
+Do not add `--stack-version` to the package command casually: the pinned upstream
+CLI's downgrade path generates replacement IDs by default. Packaging without
+that flag preserves IDs; an offline integration test enforces this. Rules target
+the configured stack through native metadata/config. Revisit compatibility and
+identity tests when changing stack or upstream revision.
+
+## Review and push your first rule
+
+1. Create a branch: `git switch -c detections/my-first-rule`.
+2. Open the export folder in VS Code Explorer and review its TOML files. Search
+   the existing `rules/` collection for the same `rule_id`. Reconcile the existing
+   file when present; never add duplicate IDs.
+3. For a new rule, create `rules/imported/` and move the reviewed rule TOML there.
+   Review dependency files before moving them into root `exceptions/` and
+   `action_connectors/`. Never commit sensitive connector configuration.
+4. Preserve ID, ownership tag and disabled state. Update metadata dates and
+   increment `[rule].version` above the existing/exported version for changes.
+5. Run **Elastic: validate rules**, **Elastic: test** and **Elastic: package rules**.
+   Inspect the packaged query/ID/enabled state and test query behavior in Kibana.
+6. Commit only the reviewed files and push:
+
+```powershell
+git diff
+# Replace with the specific TOML path you reviewed:
+git add "rules/imported/your-reviewed-rule.toml"
+git commit -m "Add first custom detection"
+git push -u origin HEAD
+```
+
+If Git asks for identity, use `git config user.name "Your Name"` and
+`git config user.email "your-github-email"` for this repository. Follow Git
+Credential Manager's browser sign-in when prompted; do not put a token into
+the remote URL. On GitHub, choose the branch's **Compare & pull request**, inspect
+**Validate rules**, then merge after review. With deployment disabled, this only
+validates and packages; it does not change Kibana.
 
 ## Credential rotation and recovery
 
